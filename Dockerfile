@@ -19,3 +19,5 @@ RUN echo 'set encoding=utf-8' >> /usr/share/vim/vimrc
 RUN locale-gen en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
+
+WORKDIR /tushare
