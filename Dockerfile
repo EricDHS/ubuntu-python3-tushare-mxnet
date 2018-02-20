@@ -11,4 +11,6 @@ RUN pip install \
     lxml \
     requests\
     bs4
-RUN pip install tushare
+RUN pip install tushare \
+    mxnet \
+    gluon
