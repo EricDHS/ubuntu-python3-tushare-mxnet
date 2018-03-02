@@ -11,6 +11,8 @@ import threading
 import time
 import logging
 import subprocess
+import pandas as pd
+import numpy as np
 
 logger = logging.getLogger()
 logFormatter = logging.Formatter("%(asctime)s|%(levelname)s - %(threadName)s - %(message)s")
@@ -47,39 +49,43 @@ class myThread (threading.Thread):
         logger.info("Starting name: {}, merging data for code: {}".format(self.name, self.code))
         try:
             hist_data = pd.read_csv('data/hist/{}_hist.csv'.format(self.code)).iloc[::-1]
-            for 
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_YEJI_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_report_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
-
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_PROFIT_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_profit_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
-
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_OPERATION_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_operation_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
-
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_GROWTH_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_growth_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
-
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_DEBTPAYING_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_debtpaying_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
-
-            file_name = 'data/jibenmian/{}-{}-{}.csv'.format(_CASHFLOW_, year, season)
-            logger.info("Starting thread: {}, to data: {}".format(self.name, file_name))
-            ts.get_cashflow_data(year, season).to_csv(file_name)
-            logger.info('Successfully fetched jbm data to {}'.format(file_name))
+            yeji_data = pd.read_csv('data/jibenmian/all_yeji_report.csv').sort('date_report')
+            yeji_data = yeji_data.loc[yeji_data['code']==int(self.code)]
+            
+            hist_data['yeji_eps'] = np.NaN
+            hist_data['yeji_eps_yoy'] = np.NaN
+            hist_data['yeji_bvps'] = np.NaN
+            hist_data['yeji_roe'] = np.NaN
+            hist_data['yeji_epcf'] = np.NaN
+            hist_data['yeji_net_profits'] = np.NaN
+            hist_data['yeji_profits_yoy'] = np.NaN
+            hist_data['yeji_distrib'] = np.NaN
+            begin_date = None
+            logger.info('Begin to Ana Yeji data')
+            for index,row in yeji_data.iterrows():
+                if begin_date:
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_eps'] = row['eps']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_eps_yoy'] = row['eps_yoy']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_bvps'] = row['bvps']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_roe'] = row['roe']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_epcf'] = row['epcf']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_net_profits'] = row['net_profits']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_profits_yoy'] = row['profits_yoy']
+                    hist_data.loc[hist_data['date']>=begin_date and hist_data['date']<row['report_date']]['yeji_distrib'] = row['distrib']
+                    begin_date = row['report_date']
+                else:
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_eps'] = row['eps']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_eps_yoy'] = row['eps_yoy']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_bvps'] = row['bvps']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_roe'] = row['roe']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_epcf'] = row['epcf']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_net_profits'] = row['net_profits']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_profits_yoy'] = row['profits_yoy']
+                    hist_data.loc[hist_data['date']<row['report_date']]['yeji_distrib'] = row['distrib']
+                    begin_date = row['report_date']
 
         except Exception as e:
-            print('Error occured: {}'.format(e))
+            logger.error('Error occured: {}'.format(e))
 
 # 创建新线程
 #threads.append(myThread(_BASICS_))
