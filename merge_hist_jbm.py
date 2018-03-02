@@ -105,7 +105,7 @@ def create_data_mxnet(code):
             c_data.reset_index(drop=True, inplace=True)
             result[new_column] = c_data
             result.drop(result.tail(1).index,inplace=True)
-            result.drop(columns=['date'])
+            result = result.drop(columns=['date'])
             result.to_csv('data/mxnet/{}-{}.csv'.format(t, code))
 
     except Exception as e:
