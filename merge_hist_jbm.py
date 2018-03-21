@@ -58,46 +58,46 @@ def create_data_mxnet(code):
     try:
         hist_data = pd.read_csv('data/hist/{}_hist.csv'.format(code)).iloc[::-1]
         hist_data.reset_index(drop=True, inplace=True)
-        yeji_data = pd.read_csv('data/jibenmian/all_yeji_report.csv').sort_values('report_date')
-        yeji_data = yeji_data.loc[yeji_data['code']==int(code)]
+        #yeji_data = pd.read_csv('data/jibenmian/all_yeji_report.csv').sort_values('report_date')
+        #yeji_data = yeji_data.loc[yeji_data['code']==int(code)]
         hist_data['date'] =  pd.to_datetime(hist_data['date'], format='%Y-%m-%d')
-        hist_data['yeji_eps'] = np.NaN
-        hist_data['yeji_eps_yoy'] = np.NaN
-        hist_data['yeji_bvps'] = np.NaN
-        hist_data['yeji_roe'] = np.NaN
-        hist_data['yeji_epcf'] = np.NaN
-        hist_data['yeji_net_profits'] = np.NaN
-        hist_data['yeji_profits_yoy'] = np.NaN
-        hist_data['yeji_distrib'] = np.NaN
-        begin_date = None
-        logger.info('Begin to Ana Yeji data')
-        for index,row in yeji_data.iterrows():
-            date = datetime.strptime(row['report_date'], '%Y-%m-%d')
-            if begin_date:
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_eps'] = row['eps']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_eps_yoy'] = row['eps_yoy']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_bvps'] = row['bvps']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_roe'] = row['roe']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_epcf'] = row['epcf']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_net_profits'] = row['net_profits']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_profits_yoy'] = row['profits_yoy']
-                hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_distrib'] = row['distrib']
-                begin_date = date
-            else:
-                hist_data.loc[hist_data['date']<date, 'yeji_eps'] = row['eps']
-                hist_data.loc[hist_data['date']<date, 'yeji_eps_yoy'] = row['eps_yoy']
-                hist_data.loc[hist_data['date']<date, 'yeji_bvps'] = row['bvps']
-                hist_data.loc[hist_data['date']<date, 'yeji_roe'] = row['roe']
-                hist_data.loc[hist_data['date']<date, 'yeji_epcf'] = row['epcf']
-                hist_data.loc[hist_data['date']<date, 'yeji_net_profits'] = row['net_profits']
-                hist_data.loc[hist_data['date']<date, 'yeji_profits_yoy'] = row['profits_yoy']
-                hist_data.loc[hist_data['date']<date, 'yeji_distrib'] = row['distrib']
-                begin_date = date
+        #hist_data['yeji_eps'] = np.NaN
+        #hist_data['yeji_eps_yoy'] = np.NaN
+        #hist_data['yeji_bvps'] = np.NaN
+        #hist_data['yeji_roe'] = np.NaN
+        #hist_data['yeji_epcf'] = np.NaN
+        #hist_data['yeji_net_profits'] = np.NaN
+        #hist_data['yeji_profits_yoy'] = np.NaN
+        #hist_data['yeji_distrib'] = np.NaN
+        #begin_date = None
+        #logger.info('Begin to Ana Yeji data')
+        #for index,row in yeji_data.iterrows():
+        #   date = datetime.strptime(row['report_date'], '%Y-%m-%d')
+        #   if begin_date:
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_eps'] = row['eps']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_eps_yoy'] = row['eps_yoy']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_bvps'] = row['bvps']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_roe'] = row['roe']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_epcf'] = row['epcf']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_net_profits'] = row['net_profits']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_profits_yoy'] = row['profits_yoy']
+        #       hist_data.loc[(hist_data['date']>=begin_date) & (hist_data['date']<date), 'yeji_distrib'] = row['distrib']
+        #       begin_date = date
+        #   else:
+        #       hist_data.loc[hist_data['date']<date, 'yeji_eps'] = row['eps']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_eps_yoy'] = row['eps_yoy']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_bvps'] = row['bvps']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_roe'] = row['roe']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_epcf'] = row['epcf']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_net_profits'] = row['net_profits']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_profits_yoy'] = row['profits_yoy']
+        #       hist_data.loc[hist_data['date']<date, 'yeji_distrib'] = row['distrib']
+        #       begin_date = date
         #hist_data.set_index(drop=True)
         care_types = ['high', 'low', 'open', 'close']
         for t in care_types:
             c_data = hist_data[t]
-            result = hist_data
+            result = hist_data.copy()
             new_column = 'predict_{}'.format(t)
             result[new_column] = np.NaN
             result.reset_index(drop=True, inplace=True)
