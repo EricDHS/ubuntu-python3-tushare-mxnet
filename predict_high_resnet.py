@@ -5,6 +5,12 @@ import numpy as np
 from mxnet import ndarray as nd
 from mxnet import autograd
 from mxnet import gluon
+from mxnet import init
+from mxnet.gluon import nn
+
+import sys
+sys.path.append('gluon-tutorials-zh')
+import utils
 
 def get_rmse_log(net, X_train, y_train):
     num_train = X_train.shape[0]
@@ -12,14 +18,77 @@ def get_rmse_log(net, X_train, y_train):
     return np.sqrt(2 * nd.sum(square_loss(
         nd.log(clipped_preds), nd.log(y_train))).asscalar() / num_train)
 
-def get_net():
-    net = gluon.nn.Sequential()
-    with net.name_scope():
-        net.add(gluon.nn.Flatten())
-        #net.add(gluon.nn.Dense(256, activation="sigmoid"))
-        net.add(gluon.nn.Dense(1))
-    net.initialize()
-    return net
+class Residual(nn.Block):
+    def __init__(self, channels, same_shape=True, **kwargs):
+        super(Residual, self).__init__(**kwargs)
+        self.same_shape = same_shape
+        strides = 1 if same_shape else 2
+        self.conv1 = nn.Conv2D(channels, kernel_size=1, padding=0,
+                              strides=strides)
+        self.bn1 = nn.BatchNorm()
+        self.conv2 = nn.Conv2D(channels, kernel_size=1, padding=0)
+        self.bn2 = nn.BatchNorm()
+        if not same_shape:
+            self.conv3 = nn.Conv2D(channels, kernel_size=1,
+                                  strides=strides)
+
+    def forward(self, x):
+        out = nd.softmax(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        if not self.same_shape:
+            x = self.conv3(x)
+        return nd.relu(out + x)
+
+class ResNet(nn.Block):
+    def __init__(self, num_classes, verbose=False, **kwargs):
+        super(ResNet, self).__init__(**kwargs)
+        self.verbose = verbose
+        # add name_scope on the outermost Sequential
+        with self.name_scope():
+            # block 1
+            b1 = nn.Conv2D(64, kernel_size=1, strides=2)
+            # block 2
+            b2 = nn.Sequential()
+            b2.add(
+                nn.MaxPool2D(pool_size=1, strides=2),
+                Residual(64),
+                Residual(64)
+            )
+            # block 3
+            b3 = nn.Sequential()
+            b3.add(
+                Residual(128, same_shape=False),
+                Residual(128)
+            )
+            # block 4
+            b4 = nn.Sequential()
+            b4.add(
+                Residual(128, same_shape=False),
+                Residual(128)
+            )
+            # block 5
+            b5 = nn.Sequential()
+            b5.add(
+                Residual(512, same_shape=False),
+                Residual(512)
+            )
+            # block 6
+            b6 = nn.Sequential()
+            b6.add(
+                nn.AvgPool2D(pool_size=1),
+                nn.Dense(num_classes)
+            )
+            # chain all blocks together
+            self.net = nn.Sequential()
+            self.net.add(b1, b2, b3, b6)
+
+    def forward(self, x):
+        out = x
+        for i, b in enumerate(self.net):
+            out = b(out)
+            if self.verbose:
+                print('Block %d output: %s'%(i+1, out.shape))
+        return out
 
 def Train(net, X_train, y_train, X_test, y_test, epochs,
           verbose_epoch, learning_rate, weight_decay):
@@ -76,15 +145,17 @@ def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
                 else:
                     X_val_train = nd.concat(X_val_train, X_cur_fold, dim=0)
                     y_val_train = nd.concat(y_val_train, y_cur_fold, dim=0)
-        net = get_net()
+        ctx = utils.try_gpu()
+        net = ResNet(1)
+        net.initialize(ctx=ctx, init=init.Xavier())
         train_loss, test_loss = Train(net, X_val_train, y_val_train, X_val_test, y_val_test, epochs, verbose_epoch, learning_rate, weight_decay)
         train_loss_sum += train_loss
         print("Test loss: %f" % test_loss)
         preds = net(X_test).asnumpy()
         print(pd.Series(preds.reshape(1, -1)[0]))
         test_loss_sum += test_loss
-    preds = net(X_test).asnumpy()
-    print(pd.Series(preds.reshape(1, -1)[0]))
+        preds = net(X_test).asnumpy()
+        print(pd.Series(preds.reshape(1, -1)[0]))
     return train_loss_sum / k, test_loss_sum / k
 
 def learn(epochs, verbose_epoch, X_train, y_train, learning_rate,
@@ -95,6 +166,19 @@ def learn(epochs, verbose_epoch, X_train, y_train, learning_rate,
     preds = net(X_test).asnumpy()
     print(pd.Series(preds.reshape(1, -1)[0]))
 
+def resnet_train():
+
+    #ctx = utils.try_gpu()
+    net = ResNet(1)
+    net.initialize(init=init.Xavier())
+
+    loss = gluon.loss.SoftmaxCrossEntropyLoss()
+    #loss = gluon.loss.L2Loss()
+    trainer = gluon.Trainer(net.collect_params(),
+                        'sgd', {'learning_rate': 3})
+    utils.train(train_data, test_data, net, loss,
+            trainer, ctx, num_epochs=1) 
+
 
 train = pd.read_csv('data/mxnet/high-002668.csv')
 all_X = train.loc[:, 'open':'turnover']
@@ -103,34 +187,32 @@ all_X[numeric_feats] = all_X[numeric_feats].apply(lambda x: (x - x.mean()) / (x.
 
 all_X = pd.get_dummies(all_X, dummy_na=True)
 
-
 all_X = all_X.fillna(all_X.mean())
 
 num_train = train.shape[0]
 
+a = pd.DataFrame()
+for i in range(5):
+    a = pd.concat([a, all_X[:num_train]], axis=1)   
+
+all_X = a
 X_train = all_X[:num_train].as_matrix()
 y_train = train.predict_high.as_matrix()
-
-X_train = nd.array(X_train)
+X_train = nd.array(X_train).reshape((num_train, 5, 1, 14))
 y_train = nd.array(y_train)
 y_train.reshape((num_train, 1))
-
 #X_test = nd.array(X_test)
 X_test = all_X[num_train-1:].as_matrix()
-X_test = nd.array(X_test)
+X_test = nd.array(X_test).reshape((1, 5, 1, 14))
 
 square_loss = gluon.loss.L2Loss()
-
-k = 5 
+k = 5
 epochs = 100
-verbose_epoch = 98 
-learning_rate = 3
+verbose_epoch = 0
+learning_rate = 0.2
 weight_decay = 0.0
 
 train_loss, test_loss = k_fold_cross_valid(k, epochs, verbose_epoch, X_train,
                                            y_train, learning_rate, weight_decay)
 #print("%d-fold validation: Avg train loss: %f, Avg test loss: %f" %
 #      (k, train_loss, test_loss))
-
-#learn(epochs, verbose_epoch, X_train, y_train, learning_rate,
-#      weight_decay)
