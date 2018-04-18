@@ -99,9 +99,10 @@ def Train(net, X_train, y_train, X_test, y_test, epochs,
     dataset_train = gluon.data.ArrayDataset(X_train, y_train)
     data_iter_train = gluon.data.DataLoader(
         dataset_train, batch_size,shuffle=True)
-    trainer = gluon.Trainer(net.collect_params(), 'adam',
-                            {'learning_rate': learning_rate,
-                             'wd': weight_decay})
+    #trainer = gluon.Trainer(net.collect_params(), 'adam',
+    #                        {'learning_rate': learning_rate,
+    #                         'wd': weight_decay})
+    trainer = gluon.Trainer(net.collect_params(), 'adadelta', {'rho': 0.9999})
     net.collect_params().initialize(force_reinit=True)
     for epoch in range(epochs):
         for data, label in data_iter_train:
@@ -113,7 +114,13 @@ def Train(net, X_train, y_train, X_test, y_test, epochs,
 
             cur_train_loss = get_rmse_log(net, X_train, y_train)
         if epoch > verbose_epoch:
-            print("Epoch %d, train loss: %f" % (epoch, cur_train_loss))
+            #print("Epoch %d, train loss: %f" % (epoch, cur_train_loss))
+            if (cur_train_loss < 0.04):
+                print("Epoch %d, train loss: %f" % (epoch, cur_train_loss))
+                preds = net(X_test_new).asnumpy()
+                print(pd.Series(preds.reshape(1, -1)[0]))
+                cur_test_loss = get_rmse_log(net, X_test, y_test)
+                print("cur_test_loss Test loss: %f" % cur_test_loss)
         train_loss.append(cur_train_loss)
         if X_test is not None:
             cur_test_loss = get_rmse_log(net, X_test, y_test)
@@ -130,10 +137,12 @@ def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
     train_loss_sum = 0.0
     test_loss_sum = 0.0
     for test_i in range(k):
+    #for test_i in [3,2,1,0,4]:
         X_val_test = X_train[test_i * fold_size: (test_i + 1) * fold_size, :]
         y_val_test = y_train[test_i * fold_size: (test_i + 1) * fold_size]
 
         val_train_defined = False
+        print('round is {}'.format(test_i))
         for i in range(k):
             if i != test_i:
                 X_cur_fold = X_train[i * fold_size: (i + 1) * fold_size, :]
@@ -151,7 +160,7 @@ def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
         train_loss, test_loss = Train(net, X_val_train, y_val_train, X_val_test, y_val_test, epochs, verbose_epoch, learning_rate, weight_decay)
         train_loss_sum += train_loss
         print("Test loss: %f" % test_loss)
-        preds = net(X_test).asnumpy()
+        preds = net(X_test_new).asnumpy()
         print(pd.Series(preds.reshape(1, -1)[0]))
         test_loss_sum += test_loss
         preds = net(X_test).asnumpy()
@@ -179,7 +188,6 @@ def resnet_train():
     utils.train(train_data, test_data, net, loss,
             trainer, ctx, num_epochs=1) 
 
-
 train = pd.read_csv('data/mxnet/high-002668.csv')
 all_X = train.loc[:, 'open':'turnover']
 numeric_feats = all_X.dtypes[all_X.dtypes != "object"].index
@@ -192,22 +200,26 @@ all_X = all_X.fillna(all_X.mean())
 num_train = train.shape[0]
 
 a = pd.DataFrame()
-for i in range(5):
+fields = 8
+for i in range(fields):
     a = pd.concat([a, all_X[:num_train]], axis=1)   
 
 all_X = a
 X_train = all_X[:num_train].as_matrix()
 y_train = train.predict_high.as_matrix()
-X_train = nd.array(X_train).reshape((num_train, 5, 1, 14))
+X_train = nd.array(X_train).reshape((num_train, fields, 1, 14))
 y_train = nd.array(y_train)
 y_train.reshape((num_train, 1))
 #X_test = nd.array(X_test)
 X_test = all_X[num_train-1:].as_matrix()
-X_test = nd.array(X_test).reshape((1, 5, 1, 14))
+X_test = nd.array(X_test).reshape((1, fields, 1, 14))
+
+X_test_new = all_X[num_train-1:].as_matrix()
+X_test_new = nd.array(X_test_new).reshape((1, fields, 1, 14))
 
 square_loss = gluon.loss.L2Loss()
-k = 5
-epochs = 100
+k = 100 
+epochs = 300
 verbose_epoch = 0
 learning_rate = 0.2
 weight_decay = 0.0
