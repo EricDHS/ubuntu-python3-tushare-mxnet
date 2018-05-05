@@ -98,7 +98,7 @@ def create_data_mxnet(code):
         for t in care_types:
             c_data = hist_data[t]
             result = hist_data.copy()
-            new_column = 'predict_{}'.format(t)
+            new_column = 'predict'.format(t)
             result[new_column] = np.NaN
             result.reset_index(drop=True, inplace=True)
             c_data.drop(c_data.head(1).index, inplace=True)

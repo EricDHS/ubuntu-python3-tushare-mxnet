@@ -109,7 +109,7 @@ all_X = all_X.fillna(all_X.mean())
 num_train = train.shape[0]
 
 X_train = all_X[:num_train].as_matrix()
-y_train = train.predict_high.as_matrix()
+y_train = train.predict.as_matrix()
 
 X_train = nd.array(X_train)
 y_train = nd.array(y_train)
