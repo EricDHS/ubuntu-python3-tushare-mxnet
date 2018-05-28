@@ -93,6 +93,10 @@ class ResNet(nn.Block):
 def Train(net, X_train, y_train, X_test, y_test, epochs,
           verbose_epoch, learning_rate, weight_decay):
     global X_test_new
+    global global_round
+    global global_type
+    global Y_test_new
+    global global_predict 
     predict_value = []
     train_loss = []
     if X_test is not None:
@@ -101,10 +105,10 @@ def Train(net, X_train, y_train, X_test, y_test, epochs,
     dataset_train = gluon.data.ArrayDataset(X_train, y_train)
     data_iter_train = gluon.data.DataLoader(
         dataset_train, batch_size,shuffle=True)
-    trainer = gluon.Trainer(net.collect_params(), 'adam',
-                            {'learning_rate': learning_rate,
-                             'wd': weight_decay})
-    #trainer = gluon.Trainer(net.collect_params(), 'adadelta', {'rho': 0.9999})
+    #trainer = gluon.Trainer(net.collect_params(), 'adam',
+    #                        {'learning_rate': learning_rate,
+    #                         'wd': weight_decay})
+    trainer = gluon.Trainer(net.collect_params(), 'adadelta', {'rho': 0.9999})
     net.collect_params().initialize(force_reinit=True)
     for epoch in range(epochs):
         for data, label in data_iter_train:
@@ -117,12 +121,16 @@ def Train(net, X_train, y_train, X_test, y_test, epochs,
             cur_train_loss = get_rmse_log(net, X_train, y_train)
         if epoch > verbose_epoch:
             #print("Epoch %d, train loss: %f" % (epoch, cur_train_loss))
-            if (cur_train_loss < 0.06):
+            if (cur_train_loss < 0.05):
+                cur_test_loss = get_rmse_log(net, X_test, y_test)
+                if (cur_test_loss < 0.15):
+                    continue
                 preds = net(X_test_new).asnumpy()
                 tmp_value = pd.Series(preds.reshape(1, -1)[0]).values[0]
                 print(tmp_value)
+                global_predict.append(tmp_value)
                 cur_test_loss = get_rmse_log(net, X_test, y_test)
-                print("Epoch {}, train loss: {} test loss: {}".format(epoch, cur_train_loss, cur_test_loss))
+                print("Type: {}, round: {}, Epoch {}, train loss: {} test loss: {}, target is {}".format(global_type, global_round, epoch, cur_train_loss, cur_test_loss, Y_test_new))
         train_loss.append(cur_train_loss)
         if X_test is not None:
             cur_test_loss = get_rmse_log(net, X_test, y_test)
@@ -135,6 +143,10 @@ def Train(net, X_train, y_train, X_test, y_test, epochs,
 def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
                        learning_rate, weight_decay):
     global X_test_new
+    global global_round
+    global global_type
+    global Y_test_new
+    global global_predict
     assert k > 1
     fold_size = X_train.shape[0] // k
     train_loss_sum = 0.0
@@ -146,6 +158,7 @@ def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
 
         val_train_defined = False
         print('round is {}'.format(test_i))
+        global_round = test_i
         for i in range(k):
             if i != test_i:
                 X_cur_fold = X_train[i * fold_size: (i + 1) * fold_size, :]
@@ -162,9 +175,10 @@ def k_fold_cross_valid(k, epochs, verbose_epoch, X_train, y_train,
         net.initialize(ctx=ctx, init=init.Xavier())
         train_loss, test_loss = Train(net, X_val_train, y_val_train, X_val_test, y_val_test, epochs, verbose_epoch, learning_rate, weight_decay)
         train_loss_sum += train_loss
-        print("Final train loss is: {}, Test loss is: {}".format(train_loss, test_loss))
-        preds = net(X_test_new).asnumpy()
-        print(pd.Series(preds.reshape(1, -1)[0]))
+        print("Round is: {}, Type is: {}, Final train loss is: {}, Test loss is: {}, target is: {}".format(global_round, global_type, train_loss, test_loss, Y_test_new))
+        preds = net(X_test_new).asnumpy().reshape(1, -1)[0]
+        #global_predict.append(preds)
+        print(preds)
         #test_loss_sum += test_loss
     #return train_loss_sum / k, test_loss_sum / k
 
@@ -191,6 +205,7 @@ def resnet_train():
 
 def predict(filename):
     global X_test_new
+    global Y_test_new
     train = pd.read_csv('data/mxnet/{}'.format(filename))
     all_X = train.loc[:, 'open':'turnover']
     numeric_feats = all_X.dtypes[all_X.dtypes != "object"].index
@@ -219,7 +234,7 @@ def predict(filename):
     
     X_test_new = all_X[num_train-1:].as_matrix()
     X_test_new = nd.array(X_test_new).reshape((1, fields, 1, 14))
-    
+    Y_test_new = y_train[num_train-1].asnumpy()[0]
     
     k_fold_cross_valid(k, epochs, verbose_epoch, X_train,
                                                y_train, learning_rate, weight_decay)
@@ -233,13 +248,31 @@ verbose_epoch = 0
 learning_rate = 0.2
 weight_decay = 0.0
 X_test_new = 0
+Y_test_new = 0
 
-print("Open")
-predict('open-002652.csv')
-
-print("Close")
-predict('close-002652.csv')
-print("high")
-predict('high-002652.csv')
-print("low")
-predict('low-002652.csv')
+global_predict = []
+result = []
+global_type = 'Open'
+predict('open-002668.csv')
+re = 'Final predict for {} is: {}, target is {}'.format(global_type, np.array(global_predict).mean(), Y_test_new)
+print(re)
+result.append(re)
+global_predict = []
+global_type = 'Close'
+predict('close-002668.csv')
+re = 'Final predict for {} is: {}, target is {}'.format(global_type, np.array(global_predict).mean(), Y_test_new)
+print(re)
+result.append(re)
+global_predict = []
+global_type = 'High'
+predict('high-002668.csv')
+re = 'Final predict for {} is: {}, target is {}'.format(global_type, np.array(global_predict).mean(), Y_test_new)
+print(re)
+result.append(re)
+global_predict = []
+global_type = 'Low'
+predict('low-002668.csv')
+re = 'Final predict for {} is: {}, target is {}'.format(global_type, np.array(global_predict).mean(), Y_test_new)
+print(re)
+result.append(re)
+print('\n'.join(result))
